@@ -28,26 +28,24 @@ exports.handler = async function(event, context) {
       For each gift idea, provide a specific gift name and a brief description.
       Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"`;
 
-    console.log('Sending request to HuggingFace API with prompt:', prompt);
-
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
-      { inputs: prompt },
+      'https://api.openai.com/v1/engines/text-davinci-002/completions',
+      {
+        prompt: prompt,
+        max_tokens: 200,
+        n: 1,
+        stop: null,
+        temperature: 0.7,
+      },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }
     );
 
-    console.log('HuggingFace API Response:', JSON.stringify(response.data));
-
-    if (!response.data || !response.data[0] || !response.data[0].generated_text) {
-      throw new Error('Unexpected response format from HuggingFace API');
-    }
-
-    const generatedText = response.data[0].generated_text;
+    const generatedText = response.data.choices[0].text.trim();
     console.log('Generated text:', generatedText);
 
     const suggestions = parseGiftSuggestions(generatedText);
@@ -72,7 +70,6 @@ exports.handler = async function(event, context) {
 };
 
 function parseGiftSuggestions(text) {
-  console.log('Parsing gift suggestions from:', text);
   const suggestions = [];
   const lines = text.split('\n');
 
@@ -88,6 +85,5 @@ function parseGiftSuggestions(text) {
     }
   }
 
-  console.log('Parsed suggestions:', JSON.stringify(suggestions));
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
