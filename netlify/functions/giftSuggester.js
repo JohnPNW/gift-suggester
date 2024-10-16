@@ -1,7 +1,33 @@
 const axios = require('axios');
 
 exports.handler = async function(event, context) {
-  // ... (keep the existing headers and HTTP method checks)
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers, body: 'This was a preflight call!' };
+  }
+
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+  }
+
+  // Check for API key
+  if (!process.env.HUGGINGFACE_API_KEY) {
+    console.error('HUGGINGFACE_API_KEY is not set in environment variables');
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ 
+        success: false,
+        error: 'Server configuration error', 
+        details: 'API key is missing'
+      })
+    };
+  }
 
   try {
     const { budget, occasion, interests, lifestyle, personality } = JSON.parse(event.body);
@@ -18,16 +44,43 @@ exports.handler = async function(event, context) {
 
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
-    const response = await axios.post(
-      'https://api-inference.huggingface.co/models/gpt2',
-      { inputs: prompt },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-          'Content-Type': 'application/json'
+    let retries = 3;
+    let response;
+    while (retries > 0) {
+      try {
+        response = await axios.post(
+          'https://api-inference.huggingface.co/models/distilgpt2',
+          { inputs: prompt },
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        if (response.data && response.data[0] && response.data[0].generated_text) {
+          break;
+        }
+      } catch (error) {
+        console.log('Error from HuggingFace API:', error.message);
+        if (error.response && error.response.data && error.response.data.error) {
+          console.log('API Error details:', error.response.data.error);
+          if (error.response.data.error.includes('currently loading')) {
+            console.log('Model is loading. Retrying...');
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait for 10 seconds before retrying
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
         }
       }
-    );
+      retries--;
+    }
+
+    if (!response || !response.data || !response.data[0] || !response.data[0].generated_text) {
+      throw new Error('Failed to generate suggestions after retries');
+    }
 
     console.log('HuggingFace API Response:', JSON.stringify(response.data));
 
