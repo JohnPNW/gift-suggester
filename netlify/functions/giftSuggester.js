@@ -27,9 +27,11 @@ exports.handler = async function(event, context) {
 
       Format each suggestion as: "Gift: [gift name]. Description: [brief description]."`;
 
+    console.log('API Key (first 5 chars):', process.env.HUGGINGFACE_API_KEY.substring(0, 5));
     console.log('Sending request to HuggingFace API with prompt:', prompt);
+
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/distilgpt2',
+      'https://api-inference.huggingface.co/models/gpt2',
       { inputs: prompt },
       {
         headers: {
@@ -38,9 +40,12 @@ exports.handler = async function(event, context) {
         }
       }
     );
-    console.log('Received response from HuggingFace API:', JSON.stringify(response.data));
+
+    console.log('HuggingFace API Response:', JSON.stringify(response.data));
 
     const generatedText = response.data[0].generated_text;
+    console.log('Generated text:', generatedText);
+
     const suggestions = parseGiftSuggestions(generatedText);
 
     return {
@@ -49,7 +54,7 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ success: true, suggestions })
     };
   } catch (error) {
-    console.error('Error:', error.response ? JSON.stringify(error.response.data) : error.message);
+    console.error('Error details:', error.response ? JSON.stringify(error.response.data) : error.message);
     return {
       statusCode: 500,
       headers,
@@ -65,12 +70,12 @@ exports.handler = async function(event, context) {
 function parseGiftSuggestions(text) {
   console.log('Parsing gift suggestions from:', text);
   const suggestions = text.split('\n')
-    .filter(line => line.startsWith('Gift:'))
+    .filter(line => line.toLowerCase().includes('gift:'))
     .map(line => {
-      const [giftPart, descriptionPart] = line.split('Description:');
+      const [giftPart, descriptionPart] = line.split(/description:/i);
       return {
-        name: giftPart.replace('Gift:', '').trim(),
-        description: descriptionPart ? descriptionPart.trim() : ''
+        name: giftPart.replace(/gift:/i, '').trim(),
+        description: descriptionPart ? descriptionPart.trim() : 'No description provided.'
       };
     });
   console.log('Parsed suggestions:', JSON.stringify(suggestions));
