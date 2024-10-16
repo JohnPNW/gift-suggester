@@ -19,14 +19,7 @@ exports.handler = async function(event, context) {
     console.log('Received request body:', event.body);
     const { budget, occasion, interests, lifestyle, personality } = JSON.parse(event.body);
 
-    const prompt = `Generate 5 unique gift ideas based on the following:
-      Budget: ${budget}
-      Occasion: ${occasion}
-      Interests/Hobbies: ${interests}
-      Lifestyle: ${lifestyle}
-      Personality: ${personality}
-      For each gift idea, provide a specific gift name and a brief description.
-      Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"`;
+    const prompt = `Generate 5 unique gift ideas for a ${occasion} gift. Budget: $${budget}. The recipient enjoys ${interests}, has a ${lifestyle} lifestyle, and a ${personality} personality. For each gift, provide the name and a brief description. Format: "1. Gift Name: Description", "2. Gift Name: Description", etc.`;
 
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
@@ -35,7 +28,7 @@ exports.handler = async function(event, context) {
     }
 
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/gpt2',  // Changed to GPT-2 model
+      'https://api-inference.huggingface.co/models/google/flan-t5-base',
       { inputs: prompt },
       {
         headers: {
@@ -84,18 +77,18 @@ function parseGiftSuggestions(text) {
     console.log('No text to parse');
     return suggestions;
   }
+  
   const lines = text.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.toLowerCase().includes('gift:')) {
-      const parts = line.split('-');
-      if (parts.length >= 2) {
-        const name = parts[0].replace(/gift:/i, '').trim();
-        const description = parts.slice(1).join('-').replace(/description:/i, '').trim();
-        suggestions.push({ name, description });
-      }
+  for (let line of lines) {
+    const match = line.match(/\d+\.\s*(.+?):\s*(.+)/);
+    if (match) {
+      suggestions.push({
+        name: match[1].trim(),
+        description: match[2].trim()
+      });
     }
   }
+
   console.log('Parsed suggestions:', JSON.stringify(suggestions));
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
