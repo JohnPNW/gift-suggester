@@ -16,6 +16,7 @@ exports.handler = async function(event, context) {
   }
 
   try {
+    console.log('Received request body:', event.body);
     const { budget, occasion, interests, lifestyle, personality } = JSON.parse(event.body);
 
     const prompt = `Generate 5 unique gift ideas based on the following:
@@ -27,6 +28,12 @@ exports.handler = async function(event, context) {
 
       For each gift idea, provide a specific gift name and a brief description.
       Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"`;
+
+    console.log('Sending request to OpenAI API with prompt:', prompt);
+
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not set in environment variables');
+    }
 
     const response = await axios.post(
       'https://api.openai.com/v1/engines/text-davinci-002/completions',
@@ -44,6 +51,8 @@ exports.handler = async function(event, context) {
         }
       }
     );
+
+    console.log('OpenAI API Response:', JSON.stringify(response.data));
 
     const generatedText = response.data.choices[0].text.trim();
     console.log('Generated text:', generatedText);
@@ -70,6 +79,7 @@ exports.handler = async function(event, context) {
 };
 
 function parseGiftSuggestions(text) {
+  console.log('Parsing gift suggestions from:', text);
   const suggestions = [];
   const lines = text.split('\n');
 
@@ -85,5 +95,6 @@ function parseGiftSuggestions(text) {
     }
   }
 
+  console.log('Parsed suggestions:', JSON.stringify(suggestions));
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
