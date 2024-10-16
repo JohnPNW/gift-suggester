@@ -25,7 +25,6 @@ exports.handler = async function(event, context) {
       Interests/Hobbies: ${interests}
       Lifestyle: ${lifestyle}
       Personality: ${personality}
-
       For each gift idea, provide a specific gift name and a brief description.
       Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"`;
 
@@ -46,7 +45,7 @@ exports.handler = async function(event, context) {
       }
     );
 
-    console.log('HuggingFace API Response:', JSON.stringify(response.data));
+    console.log('Raw HuggingFace API response:', JSON.stringify(response.data));
 
     const generatedText = response.data[0].generated_text;
     console.log('Generated text:', generatedText);
@@ -76,7 +75,6 @@ function parseGiftSuggestions(text) {
   console.log('Parsing gift suggestions from:', text);
   const suggestions = [];
   const lines = text.split('\n');
-
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (line.toLowerCase().startsWith('gift:')) {
@@ -88,7 +86,6 @@ function parseGiftSuggestions(text) {
       }
     }
   }
-
   console.log('Parsed suggestions:', JSON.stringify(suggestions));
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
