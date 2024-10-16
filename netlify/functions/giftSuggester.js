@@ -19,7 +19,19 @@ exports.handler = async function(event, context) {
     console.log('Received request body:', event.body);
     const { budget, occasion, interests, lifestyle, personality } = JSON.parse(event.body);
 
-    const prompt = `Generate 5 unique gift ideas for a ${occasion} gift. Budget: $${budget}. The recipient enjoys ${interests}, has a ${lifestyle} lifestyle, and a ${personality} personality. For each gift, provide the name and a brief description. Format: "1. Gift Name: Description", "2. Gift Name: Description", etc.`;
+    const prompt = `Task: Generate 5 unique and specific gift ideas.
+Occasion: ${occasion}
+Budget: $${budget}
+Recipient interests: ${interests}
+Lifestyle: ${lifestyle}
+Personality: ${personality}
+
+For each gift idea, provide:
+1. A specific gift name (not just "Gift Name")
+2. A brief description of why it's suitable
+
+Format each suggestion as: "1. [Specific Gift Name]: [Brief description]"
+Be creative and avoid generic suggestions.`;
 
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
@@ -28,7 +40,7 @@ exports.handler = async function(event, context) {
     }
 
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/google/flan-t5-base',
+      'https://api-inference.huggingface.co/models/google/flan-t5-xl',
       { inputs: prompt },
       {
         headers: {
@@ -80,11 +92,22 @@ function parseGiftSuggestions(text) {
   
   const lines = text.split('\n');
   for (let line of lines) {
-    const match = line.match(/\d+\.\s*(.+?):\s*(.+)/);
+    const match = line.match(/(\d+)\.\s*(.+?):\s*(.+)/);
     if (match) {
       suggestions.push({
-        name: match[1].trim(),
-        description: match[2].trim()
+        name: match[2].trim(),
+        description: match[3].trim()
+      });
+    }
+  }
+
+  // If no suggestions were parsed, try to extract any meaningful content
+  if (suggestions.length === 0) {
+    const fallbackMatch = text.match(/(.+?):\s*(.+)/);
+    if (fallbackMatch) {
+      suggestions.push({
+        name: fallbackMatch[1].trim(),
+        description: fallbackMatch[2].trim()
       });
     }
   }
