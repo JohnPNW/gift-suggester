@@ -27,7 +27,13 @@ exports.handler = async function(event, context) {
 
       Format each suggestion as: "Gift: [gift name]. Description: [brief description]."`;
 
-    console.log('API Key (first 5 chars):', process.env.HUGGINGFACE_API_KEY.substring(0, 5));
+    console.log('API Key exists:', !!process.env.HUGGINGFACE_API_KEY);
+    console.log('API Key length:', process.env.HUGGINGFACE_API_KEY ? process.env.HUGGINGFACE_API_KEY.length : 0);
+    
+    if (!process.env.HUGGINGFACE_API_KEY) {
+      throw new Error('HUGGINGFACE_API_KEY is not set');
+    }
+
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
     const response = await axios.post(
@@ -54,14 +60,14 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ success: true, suggestions })
     };
   } catch (error) {
-    console.error('Error details:', error.response ? JSON.stringify(error.response.data) : error.message);
+    console.error('Error details:', error.message);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ 
         success: false,
         error: 'Failed to generate suggestions', 
-        details: error.response ? error.response.data : error.message 
+        details: error.message 
       })
     };
   }
