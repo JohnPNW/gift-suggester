@@ -40,7 +40,7 @@ Be creative and avoid generic suggestions.`;
     }
 
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/google/flan-t5-xl',
+      'https://api-inference.huggingface.co/models/google/flan-t5-base',
       { inputs: prompt },
       {
         headers: {
