@@ -15,72 +15,32 @@ exports.handler = async function(event, context) {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  // Check for API key
-  if (!process.env.HUGGINGFACE_API_KEY) {
-    console.error('HUGGINGFACE_API_KEY is not set in environment variables');
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ 
-        success: false,
-        error: 'Server configuration error', 
-        details: 'API key is missing'
-      })
-    };
-  }
-
   try {
     const { budget, occasion, interests, lifestyle, personality } = JSON.parse(event.body);
 
-    const prompt = `Generate 5 gift ideas based on the following:
+    const prompt = `Generate 5 unique gift ideas based on the following:
       Budget: ${budget}
       Occasion: ${occasion}
       Interests/Hobbies: ${interests}
       Lifestyle: ${lifestyle}
       Personality: ${personality}
 
-      For each gift idea, provide the name of the gift and a brief description.
-      Format: Gift: [gift name] - Description: [brief description]`;
+      For each gift idea, provide a specific gift name and a brief description.
+      Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"
+      Do not use placeholders like [gift name] or [brief description]. Provide actual gift ideas.`;
 
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
-    let retries = 3;
-    let response;
-    while (retries > 0) {
-      try {
-        response = await axios.post(
-          'https://api-inference.huggingface.co/models/distilgpt2',
-          { inputs: prompt },
-          {
-            headers: {
-              'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        if (response.data && response.data[0] && response.data[0].generated_text) {
-          break;
-        }
-      } catch (error) {
-        console.log('Error from HuggingFace API:', error.message);
-        if (error.response && error.response.data && error.response.data.error) {
-          console.log('API Error details:', error.response.data.error);
-          if (error.response.data.error.includes('currently loading')) {
-            console.log('Model is loading. Retrying...');
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait for 10 seconds before retrying
-          } else {
-            throw error;
-          }
-        } else {
-          throw error;
+    const response = await axios.post(
+      'https://api-inference.huggingface.co/models/gpt2',
+      { inputs: prompt },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'application/json'
         }
       }
-      retries--;
-    }
-
-    if (!response || !response.data || !response.data[0] || !response.data[0].generated_text) {
-      throw new Error('Failed to generate suggestions after retries');
-    }
+    );
 
     console.log('HuggingFace API Response:', JSON.stringify(response.data));
 
@@ -110,20 +70,19 @@ exports.handler = async function(event, context) {
 
 function parseGiftSuggestions(text) {
   console.log('Parsing gift suggestions from:', text);
-  const lines = text.split('\n');
   const suggestions = [];
+  const lines = text.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.toLowerCase().includes('gift:')) {
-      const giftMatch = line.match(/Gift:\s*(.*?)(?:\s*-\s*Description:|$)/i);
-      const descriptionMatch = line.match(/Description:\s*(.*)/i) || lines[i + 1]?.match(/Description:\s*(.*)/i);
-      
-      if (giftMatch) {
-        suggestions.push({
-          name: giftMatch[1].trim(),
-          description: descriptionMatch ? descriptionMatch[1].trim() : 'No description provided.'
-        });
+    const line = lines[i].trim();
+    if (line.toLowerCase().startsWith('gift:')) {
+      const parts = line.split('-');
+      if (parts.length >= 2) {
+        const name = parts[0].replace('Gift:', '').trim();
+        const description = parts.slice(1).join('-').replace('Description:', '').trim();
+        if (name !== '[gift name]' && description !== '[brief description]') {
+          suggestions.push({ name, description });
+        }
       }
     }
   }
