@@ -1,8 +1,0 @@
-{
-  "name": "gift-suggester",
-  "version": "1.0.0",
-  "description": "Gift suggestion serverless function",
-  "dependencies": {
-    "axios": "^0.21.1"
-  }
-}
