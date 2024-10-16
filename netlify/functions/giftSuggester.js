@@ -38,7 +38,7 @@ exports.handler = async function(event, context) {
         }
       }
     );
-    console.log('Received response from HuggingFace API:', response.data);
+    console.log('Received response from HuggingFace API:', JSON.stringify(response.data));
 
     const generatedText = response.data[0].generated_text;
     const suggestions = parseGiftSuggestions(generatedText);
@@ -46,14 +46,15 @@ exports.handler = async function(event, context) {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(suggestions)
+      body: JSON.stringify({ success: true, suggestions })
     };
   } catch (error) {
-    console.error('Error:', error.response ? error.response.data : error.message);
+    console.error('Error:', error.response ? JSON.stringify(error.response.data) : error.message);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ 
+        success: false,
         error: 'Failed to generate suggestions', 
         details: error.response ? error.response.data : error.message 
       })
@@ -72,6 +73,6 @@ function parseGiftSuggestions(text) {
         description: descriptionPart ? descriptionPart.trim() : ''
       };
     });
-  console.log('Parsed suggestions:', suggestions);
+  console.log('Parsed suggestions:', JSON.stringify(suggestions));
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
