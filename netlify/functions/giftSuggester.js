@@ -35,7 +35,7 @@ exports.handler = async function(event, context) {
     }
 
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
+      'https://api-inference.huggingface.co/models/gpt2',  // Changed to GPT-2 model
       { inputs: prompt },
       {
         headers: {
@@ -47,7 +47,13 @@ exports.handler = async function(event, context) {
 
     console.log('Raw HuggingFace API response:', JSON.stringify(response.data));
 
-    const generatedText = response.data[0].generated_text;
+    let generatedText = '';
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      generatedText = response.data[0].generated_text || '';
+    } else if (typeof response.data === 'object') {
+      generatedText = response.data.generated_text || '';
+    }
+
     console.log('Generated text:', generatedText);
 
     const suggestions = parseGiftSuggestions(generatedText);
@@ -74,14 +80,18 @@ exports.handler = async function(event, context) {
 function parseGiftSuggestions(text) {
   console.log('Parsing gift suggestions from:', text);
   const suggestions = [];
+  if (!text) {
+    console.log('No text to parse');
+    return suggestions;
+  }
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line.toLowerCase().startsWith('gift:')) {
+    if (line.toLowerCase().includes('gift:')) {
       const parts = line.split('-');
       if (parts.length >= 2) {
-        const name = parts[0].replace('Gift:', '').trim();
-        const description = parts.slice(1).join('-').replace('Description:', '').trim();
+        const name = parts[0].replace(/gift:/i, '').trim();
+        const description = parts.slice(1).join('-').replace(/description:/i, '').trim();
         suggestions.push({ name, description });
       }
     }
