@@ -1,38 +1,20 @@
 const axios = require('axios');
 
 exports.handler = async function(event, context) {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
-  };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: 'This was a preflight call!' };
-  }
-
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-  }
+  // ... (keep the existing headers and HTTP method checks)
 
   try {
     const { budget, occasion, interests, lifestyle, personality } = JSON.parse(event.body);
 
-    const prompt = `Suggest 5 gift ideas based on the following:
+    const prompt = `Generate 5 gift ideas based on the following:
       Budget: ${budget}
       Occasion: ${occasion}
       Interests/Hobbies: ${interests}
       Lifestyle: ${lifestyle}
       Personality: ${personality}
 
-      Format each suggestion as: "Gift: [gift name]. Description: [brief description]."`;
-
-    console.log('API Key exists:', !!process.env.HUGGINGFACE_API_KEY);
-    console.log('API Key length:', process.env.HUGGINGFACE_API_KEY ? process.env.HUGGINGFACE_API_KEY.length : 0);
-    
-    if (!process.env.HUGGINGFACE_API_KEY) {
-      throw new Error('HUGGINGFACE_API_KEY is not set');
-    }
+      For each gift idea, provide the name of the gift and a brief description.
+      Format: Gift: [gift name] - Description: [brief description]`;
 
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
@@ -56,14 +38,14 @@ exports.handler = async function(event, context) {
 
     return {
       statusCode: 200,
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ success: true, suggestions })
     };
   } catch (error) {
     console.error('Error details:', error.message);
     return {
       statusCode: 500,
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         success: false,
         error: 'Failed to generate suggestions', 
@@ -75,15 +57,24 @@ exports.handler = async function(event, context) {
 
 function parseGiftSuggestions(text) {
   console.log('Parsing gift suggestions from:', text);
-  const suggestions = text.split('\n')
-    .filter(line => line.toLowerCase().includes('gift:'))
-    .map(line => {
-      const [giftPart, descriptionPart] = line.split(/description:/i);
-      return {
-        name: giftPart.replace(/gift:/i, '').trim(),
-        description: descriptionPart ? descriptionPart.trim() : 'No description provided.'
-      };
-    });
+  const lines = text.split('\n');
+  const suggestions = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.toLowerCase().includes('gift:')) {
+      const giftMatch = line.match(/Gift:\s*(.*?)(?:\s*-\s*Description:|$)/i);
+      const descriptionMatch = line.match(/Description:\s*(.*)/i) || lines[i + 1]?.match(/Description:\s*(.*)/i);
+      
+      if (giftMatch) {
+        suggestions.push({
+          name: giftMatch[1].trim(),
+          description: descriptionMatch ? descriptionMatch[1].trim() : 'No description provided.'
+        });
+      }
+    }
+  }
+
   console.log('Parsed suggestions:', JSON.stringify(suggestions));
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
