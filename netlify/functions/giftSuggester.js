@@ -26,13 +26,12 @@ exports.handler = async function(event, context) {
       Personality: ${personality}
 
       For each gift idea, provide a specific gift name and a brief description.
-      Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"
-      Do not use placeholders like [gift name] or [brief description]. Provide actual gift ideas.`;
+      Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"`;
 
     console.log('Sending request to HuggingFace API with prompt:', prompt);
 
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/gpt2',
+      'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
       { inputs: prompt },
       {
         headers: {
@@ -43,6 +42,10 @@ exports.handler = async function(event, context) {
     );
 
     console.log('HuggingFace API Response:', JSON.stringify(response.data));
+
+    if (!response.data || !response.data[0] || !response.data[0].generated_text) {
+      throw new Error('Unexpected response format from HuggingFace API');
+    }
 
     const generatedText = response.data[0].generated_text;
     console.log('Generated text:', generatedText);
@@ -55,14 +58,14 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ success: true, suggestions })
     };
   } catch (error) {
-    console.error('Error details:', error.message);
+    console.error('Error details:', error.response ? JSON.stringify(error.response.data) : error.message);
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         success: false,
         error: 'Failed to generate suggestions', 
-        details: error.message 
+        details: error.response ? error.response.data : error.message 
       })
     };
   }
@@ -80,9 +83,7 @@ function parseGiftSuggestions(text) {
       if (parts.length >= 2) {
         const name = parts[0].replace('Gift:', '').trim();
         const description = parts.slice(1).join('-').replace('Description:', '').trim();
-        if (name !== '[gift name]' && description !== '[brief description]') {
-          suggestions.push({ name, description });
-        }
+        suggestions.push({ name, description });
       }
     }
   }
