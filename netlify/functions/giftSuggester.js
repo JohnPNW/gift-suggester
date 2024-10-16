@@ -36,12 +36,15 @@ exports.handler = async function(event, context) {
     }
 
     const response = await axios.post(
-      'https://api.openai.com/v1/engines/text-davinci-002/completions',
+      'https://api.openai.com/v1/chat/completions',
       {
-        prompt: prompt,
-        max_tokens: 200,
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: "You are a helpful assistant that suggests gift ideas." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 300,
         n: 1,
-        stop: null,
         temperature: 0.7,
       },
       {
@@ -54,7 +57,7 @@ exports.handler = async function(event, context) {
 
     console.log('OpenAI API Response:', JSON.stringify(response.data));
 
-    const generatedText = response.data.choices[0].text.trim();
+    const generatedText = response.data.choices[0].message.content.trim();
     console.log('Generated text:', generatedText);
 
     const suggestions = parseGiftSuggestions(generatedText);
