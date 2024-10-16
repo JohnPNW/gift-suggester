@@ -29,35 +29,26 @@ exports.handler = async function(event, context) {
       For each gift idea, provide a specific gift name and a brief description.
       Format each suggestion as: "Gift: [specific gift name] - Description: [brief description]"`;
 
-    console.log('Sending request to OpenAI API with prompt:', prompt);
+    console.log('Sending request to HuggingFace API with prompt:', prompt);
 
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set in environment variables');
+    if (!process.env.HUGGINGFACE_API_KEY) {
+      throw new Error('HUGGINGFACE_API_KEY is not set in environment variables');
     }
 
     const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: "gpt-3.5-turbo",
-        messages: [
-          { role: "system", content: "You are a helpful assistant that suggests gift ideas." },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 300,
-        n: 1,
-        temperature: 0.7,
-      },
+      'https://api-inference.huggingface.co/models/facebook/bart-large-cnn',
+      { inputs: prompt },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }
     );
 
-    console.log('OpenAI API Response:', JSON.stringify(response.data));
+    console.log('HuggingFace API Response:', JSON.stringify(response.data));
 
-    const generatedText = response.data.choices[0].message.content.trim();
+    const generatedText = response.data[0].generated_text;
     console.log('Generated text:', generatedText);
 
     const suggestions = parseGiftSuggestions(generatedText);
