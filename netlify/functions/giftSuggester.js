@@ -12,7 +12,7 @@ exports.handler = async function(event, context) {
   }
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers, body: 'Method Not Allowed' };
+    return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
   try {
@@ -27,7 +27,7 @@ exports.handler = async function(event, context) {
 
       Format each suggestion as: "Gift: [gift name]. Description: [brief description]."`;
 
-    console.log('Sending request to HuggingFace API');
+    console.log('Sending request to HuggingFace API with prompt:', prompt);
     const response = await axios.post(
       'https://api-inference.huggingface.co/models/gpt2',
       { inputs: prompt },
@@ -38,7 +38,7 @@ exports.handler = async function(event, context) {
         }
       }
     );
-    console.log('Received response from HuggingFace API');
+    console.log('Received response from HuggingFace API:', response.data);
 
     const generatedText = response.data[0].generated_text;
     const suggestions = parseGiftSuggestions(generatedText);
@@ -49,16 +49,20 @@ exports.handler = async function(event, context) {
       body: JSON.stringify(suggestions)
     };
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error:', error.response ? error.response.data : error.message);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Failed to generate suggestions', details: error.message })
+      body: JSON.stringify({ 
+        error: 'Failed to generate suggestions', 
+        details: error.response ? error.response.data : error.message 
+      })
     };
   }
 };
 
 function parseGiftSuggestions(text) {
+  console.log('Parsing gift suggestions from:', text);
   const suggestions = text.split('\n')
     .filter(line => line.startsWith('Gift:'))
     .map(line => {
@@ -68,5 +72,6 @@ function parseGiftSuggestions(text) {
         description: descriptionPart ? descriptionPart.trim() : ''
       };
     });
+  console.log('Parsed suggestions:', suggestions);
   return suggestions.slice(0, 5);  // Ensure we return at most 5 suggestions
 }
